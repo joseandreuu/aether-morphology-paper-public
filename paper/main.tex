@@ -1,0 +1,1282 @@
+\documentclass[
+  aps,
+  prapplied,
+  twocolumn,
+  superscriptaddress,
+  nofootinbib
+]{revtex4-2}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{physics}
+\usepackage{siunitx}
+\usepackage{placeins}
+\usepackage{dcolumn}
+\usepackage{hyperref}
+
+\begin{document}
+
+\title{Zero-Shot Detection of Elastic Transient Morphology Across Physical Systems}
+
+\author{Jose Sánchez Andreu}
+\affiliation{Independent Researcher, Murcia, Spain}
+
+\date{\today}
+\begin{abstract}
+We test whether a representation learned from interferometric strain transients in
+gravitational-wave observatories can act as a frozen morphology-sensitive operator for
+unseen sensors, provided the target signals preserve coherent elastic transient structure.
+Using a neural encoder trained exclusively on non-Gaussian instrumental glitches, we perform
+strict zero-shot anomaly analysis on rolling-element bearings without retraining, fine-tuning,
+or target-domain labels.
+
+On the IMS--NASA run-to-failure dataset, the operator yields a monotonic health index
+$HI(t)=s_{0.99}(t)/\tau$ normalized to an early-life reference distribution, enabling fixed
+false-alarm monitoring at $1-q=10^{-3}$ with $\tau=Q_{0.999}(\mathcal{P}_0)$.
+In discrete fault regimes (CWRU), it achieves strong window-level discrimination
+($\mathrm{AUC}_{\mathrm{win}}\approx 0.90$) and file-level separability approaching unity
+($\mathrm{AUC}_{\mathrm{file}}\approx 0.99$). Electrically dominated vibration signals (VSB) show
+weak, non-selective behavior, delineating a physical boundary for transfer.
+
+Under a matched IMS controlled-split protocol, a generic EfficientNet-B0 encoder pretrained on
+ImageNet collapses in the intermittent regime ($\Lambda_{\mathrm{tail}}\approx 2$), while the
+interferometric operator retains strong extreme-event selectivity
+($\Lambda_{\mathrm{tail}}\approx 860$), indicating that the effect is not a generic property of CNN features.
+Controlled morphology-destruction transformations selectively degrade performance despite per-window normalization,
+consistent with sensitivity to coherent time--frequency organization rather than marginal amplitude statistics.
+\end{abstract}
+
+\maketitle
+\section{Introduction}
+\label{sec:intro}
+
+The detection and characterization of transient phenomena is central across
+experimental physics. Short-duration deviations from nominal behavior often
+signal nonlinear dynamics, changes in boundary conditions, or localized
+dissipation not captured by stationary or time-averaged descriptions. In
+precision interferometry, weak non-Gaussian strain transients must be
+identified and mitigated to ensure reliable scientific inference; in rotating
+mechanical systems, transient elastic responses driven by impacts, frictional
+contacts, and incipient defects are primary indicators of structural
+degradation and instability.
+
+Despite vast differences in physical scale and sensing modality, both settings
+share a common mechanism: elastic wave propagation in constrained media.
+Material properties, geometric confinement, and boundary conditions jointly
+govern dispersion, reflection, and the temporal organization of propagating
+wave packets, so elastic transients are structured objects whose time--frequency
+organization reflects the physics of the medium. In interferometric detectors,
+such disturbances arise from suspension friction, scattered light, seismic
+upconversion, and opto-mechanical instabilities; in rolling-element bearings,
+analogous responses emerge from localized contact mechanics, surface defects,
+and impulsive load transfer across raceways. While characteristic frequencies,
+amplitudes, and units differ by orders of magnitude, both classes of systems
+impose strong physical constraints that can organize transient energy coherently
+across time and frequency. This motivates the hypothesis that certain
+\emph{coherently organized time--frequency morphologies} of non-Gaussian elastic
+transients may be preserved across physically distinct systems when propagation
+remains elastic and constrained.
+
+In gravitational-wave interferometers, non-Gaussian strain transients
+(``glitches'') are a major detector-characterization challenge
+\cite{powell2015classification,zevin2017gravityspy,cabero2019blip}. Prior work
+has shown that glitch populations exhibit rich, repeatable time--frequency
+morphologies that can be learned from data and exploited for monitoring and
+data-quality assessment. Yet most transient-detection approaches remain strongly
+domain-specific: gravitational-wave pipelines rely on detailed instrument
+models, transfer functions, and heuristics, while mechanical condition
+monitoring typically trains detectors on the target machinery, requiring labels,
+retraining, or domain adaptation as operating conditions change. Both paradigms
+tend to couple detection to absolute frequency content, signal energy, or
+stationary descriptors, and can therefore miss nonstationary transient structure
+governed by elastic propagation rather than static spectral content.
+
+Here we test a different hypothesis: that a representation trained to encode
+the \emph{morphological structure} of elastic transients can function as a fixed
+physical operator across domains, independent of absolute scale and sensor
+modality. We study a latent operator $\mathcal{F}$ trained exclusively on
+interferometric strain transients and evaluate whether it exhibits selective
+anomaly sensitivity when applied \emph{zero-shot} to rotating mechanical systems.
+Rather than acting as a domain-specific classifier, $\mathcal{F}$ operates as a
+morphology-sensitive projection from normalized time--frequency representations
+into a latent space that encodes structural regularities associated with elastic
+wave propagation.
+
+This view is summarized schematically in Fig.~\ref{fig:concept} by treating the
+trained representation as a fixed measurement operator acting on normalized
+time--frequency structure.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/Fig1.pdf}
+ \caption{
+\textbf{Conceptual framework for cross-domain morphological analysis.}
+A fixed latent operator $\mathcal{F}$, trained exclusively on interferometric
+strain transients (source domain), maps normalized time--frequency
+representations from multiple physical systems into a shared latent space
+$\mathcal{Z}$. The operator acts as a morphology-sensitive projection that
+suppresses dependence on absolute scale and sensor modality, while preserving
+structural organization associated with elastic wave propagation in constrained
+media. Zero-shot anomaly sensitivity emerges only when target-domain signals
+preserve compatible elastic transient structure; systems lacking mechanically
+mediated propagation do not exhibit separation.
+}
+  \label{fig:concept}
+\end{figure}
+
+We evaluate this hypothesis in both discrete fault regimes and progressive
+degradation. Using the IMS--NASA run-to-failure bearing dataset, we test whether
+the fixed operator $\mathcal{F}$ captures monotonic drift, yields an interpretable
+health indicator, and enables early deviation detection under a controlled
+false-alarm rate, without retraining or access to fault-domain labels. We also
+evaluate separability on the CWRU bearing dataset under controlled fault
+conditions, and use electrically dominated vibration signals as a negative
+control to delineate the physical boundary of transfer. Classical treatments of
+elastic and acoustic wave propagation in solids emphasize that transient
+structure is governed primarily by material properties, geometry, and boundary
+conditions rather than absolute scale \cite{graff1975wave,auld1973acoustic}.
+
+To ensure falsifiability, we treat $\mathcal{F}$ as a fixed measurement device
+and probe its response under controlled morphology-destruction transformations
+(e.g., spectral filtering, temporal smearing, and reverberation-induced
+self-interference). These interventions preserve marginal amplitude statistics
+through per-window normalization while selectively disrupting time--frequency
+organization. If sensitivity were driven by generic distributional shifts or
+energy cues, performance would be invariant; transformation-dependent
+degradation instead implicates preserved time--frequency structure rather than
+amplitude-based or stationary statistical effects.
+
+We emphasize that the reported invariance is empirical and
+representation-induced, not a fundamental symmetry of the governing equations:
+$\mathcal{F}$ does not encode a conserved quantity, but acts as a fixed
+instrument whose response reveals shared structural regularities under the stated
+protocol. Likewise, ``zero-shot'' refers here to an \emph{experimental deployment
+protocol}: $\mathcal{F}$ encodes a prior learned solely from \emph{source-domain}
+interferometric transient physics and is then held frozen; no target-domain
+samples, labels, hyperparameter tuning, calibration, or adaptation are used to
+shape the representation or the decision rule.
+
+The remainder of this paper is organized as follows. Section~\ref{sec:methods}
+describes the physical systems, datasets, and experimental protocol.
+Section~\ref{sec:results} presents the run-to-failure analysis, zero-shot
+transfer, and controlled degradation experiments. Section~\ref{sec:discussion}
+discusses the physical interpretation and limitations, followed by concluding
+remarks in Sec.~\ref{sec:conclusion}.
+\section{Experimental setup and methods}
+\label{sec:methods}
+\subsection{Physical Systems and Datasets}
+\label{sec:datasets}
+
+The experiments reported in this work are designed to probe whether a fixed
+latent representation, trained on interferometric strain transients, exhibits
+selective sensitivity to elastic transient morphology across physically
+unrelated systems. We therefore consider signals arising in constrained solid
+media that span disparate spatial scales, sensing modalities, and operating
+regimes, but share a common physical mechanism: elastic wave generation and
+propagation governed by material properties, geometric confinement, and
+boundary conditions.
+
+By construction, all datasets are treated as passive measurement records.
+No system-specific modeling, retraining, or domain adaptation is performed in
+the target domains. The latent operator $\mathcal{F}$ is trained once on a
+single source domain and subsequently applied as a fixed measurement device
+under a strict zero-shot protocol. Details on source-domain training, preprocessing, and statistical scoring are provided in the Supplemental Material.
+
+\paragraph{Source domain: Interferometric strain transients.}
+
+The source domain consists of interferometric strain time series
+$h(t)=\Delta L/L$ acquired from gravitational-wave detector instrumentation.
+These data contain short-duration, non-Gaussian transients (instrumental
+glitches) arising from suspension friction, seismic coupling, scattered light,
+and opto-mechanical instabilities within complex optical assemblies. The
+measured signals are broadband, nonstationary, and shaped by elastic wave
+propagation through suspended and mechanically coupled components.
+
+A dataset comprising $\mathcal{O}(10^{5})$ labeled transient events recorded
+during nominal detector operation is used exclusively to train the latent
+operator $\mathcal{F}$. No information from any mechanical target domain is used
+during training. After training, $\mathcal{F}$ is frozen and applied without
+modification in all subsequent experiments.
+
+\paragraph{Target domain A: Run-to-failure degradation (IMS--NASA).}
+
+The primary target domain is the IMS--NASA run-to-failure bearing dataset, which
+records the full temporal evolution of rolling-element bearings from nominal
+operation to catastrophic failure. Vibration signals are acquired via
+accelerometers mounted on a rotating mechanical test rig, providing a
+physically grounded record of progressive mechanical degradation driven by
+localized contact mechanics and elastic wave propagation.
+Figure~\ref{fig:ims_hi} summarizes the resulting Health Index trajectories for the
+three IMS run-to-failure experiments under the fixed false-alarm protocol.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/Fig2.pdf}
+  \caption{
+  \textbf{Zero-shot run-to-failure monitoring on IMS--NASA.}
+  Health Index trajectories for the three IMS bearing run-to-failure experiments,
+  computed under a strict zero-shot protocol using a frozen operator trained on
+  interferometric strain transients.
+  The horizontal axis denotes record index (chronological order).
+  For each record, window-level scores are aggregated via the $q=0.99$ quantile
+  and normalized by a fixed nominal threshold $\tau$, defined as the
+  $q=0.999$ quantile of the early-life reference distribution $\mathcal{P}_0$,
+  corresponding to a nominal false-alarm probability of $10^{-3}$.
+  The red dashed line marks $HI=1$ (nominal tail threshold) and the red marker
+  indicates the first threshold crossing.
+  }
+  \label{fig:ims_hi}
+\end{figure}
+Unlike static fault benchmarks, this dataset enables the analysis of temporal
+phenomena, including monotonic drift, early deviation from nominal behavior,
+and the evolution of a continuous Health Index. We analyze three independent
+run-to-failure trajectories (1st, 2nd, and 3rd tests), each exhibiting distinct
+degradation dynamics. This dataset constitutes the central experimental
+evidence for evaluating whether a fixed morphological operator can track
+physical aging and incipient failure without retraining or access to fault
+labels.
+
+\paragraph{Target domain B: Discrete fault regimes (CWRU).}
+
+As a complementary regime, we consider the Case Western Reserve University
+(CWRU) bearing dataset, which provides vibration recordings under controlled
+fault and no-fault conditions at steady operating points. 
+The dataset is provided by the CWRU Bearing Data Center \cite{Smith2015CWRU}.
+Unlike IMS, CWRU does not capture temporal degradation, but instead offers clean separation between nominal and faulty mechanical states.
+
+Rolling-element bearing diagnostics and condition monitoring have a long
+history in vibration analysis, where fault-induced elastic impacts excite
+guided waves in raceways, rolling elements, and housings.
+Early work established the importance of high-frequency resonance and impulsive
+response for bearing fault detection \cite{mcfadden1984bearing}.
+More recent benchmarks have formalized standard datasets and evaluation
+protocols for vibration-based diagnostics
+\cite{smith2015rolling,Randall2011}.
+
+Performance on CWRU is reported at two resolutions: window-level
+($\mathrm{AUC}_{\mathrm{win}}$) and file-level aggregation
+($\mathrm{AUC}_{\mathrm{file}}$).
+
+\paragraph{Negative control: Electrically dominated vibration (VSB).}
+
+To delineate the physical domain of validity, we evaluate the same frozen operator on the
+VSB power-line fault dataset, whose signals are dominated by narrowband electromagnetic
+interference and incoherent sensor noise rather than mechanically mediated elastic-wave
+propagation \cite{VSB2019}. If the reported transfer were driven by generic non-Gaussianity
+or distributional shift, comparable separation would be expected in this regime; instead,
+VSB serves as a negative control for physically specific elastic-transient morphology.
+
+All datasets are processed using the identical time--frequency pipeline described in
+Sec.~\ref{sec:tf_preprocessing}, enabling a strict zero-shot evaluation.
+\begin{table}[b]
+\caption{\label{tab:stft_params}
+Signal processing parameters defining the time--frequency resolution.
+The target sampling rate is chosen to align the elastic transient scale
+with the receptive field of the interferometric operator.
+}
+\begin{ruledtabular}
+\begin{tabular}{llll}
+Parameter & Symbol & Value & Unit \\
+\hline
+Target sampling rate & $f_s$ & 4096 & Hz \\
+Window size & $N_{\mathrm{win}}$ & 256 & samples \\
+Hop length & $N_{\mathrm{hop}}$ & 128 & samples \\
+FFT points & $N_{\mathrm{fft}}$ & 256 & bins \\
+\hline
+Temporal resolution & $\Delta t$ & 31.25 & ms \\
+Spectral resolution & $\Delta f$ & 16.0 & Hz \\
+Receptive field & $T_{\mathrm{RF}}$ & $\approx 1.5$ & s \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+In the IMS run-to-failure dataset, each measurement file acquired at a given
+time is treated as a \emph{record}. Each record is segmented into overlapping
+windows, scored at the window level, and aggregated into record-level
+statistics (e.g., upper quantiles) to produce a time-resolved Health Index
+$HI(t)$.
+
+All datasets use the fixed preprocessing pipeline in Sec.~\ref{sec:tf_preprocessing}.
+
+\subsection{Time--Frequency Representation and Preprocessing}
+\label{sec:tf_preprocessing}
+
+All signals are projected onto a fixed time--frequency representation prior to
+embedding. The latent operator $\mathcal{F}$ operates exclusively on
+pre-generated spectrograms and does not access time-domain waveforms directly;
+consequently, all time--frequency parameters are defined as part of the
+preprocessing protocol and are held fixed across domains.
+Signals are resampled to a common $f_s=4096\,\mathrm{Hz}$ to fix a shared time--frequency grid
+and to match the transient time scale to the encoder’s effective receptive field.
+The value is a convenient power-of-two choice for consistent STFT windowing; stronger
+downsampling erases short elastic transients.
+We compute Hann STFT spectrograms using $N_{\mathrm{win}}=256$, $N_{\mathrm{hop}}=128$,
+and $N_{\mathrm{fft}}=256$, yielding $\Delta f = 16\,\mathrm{Hz}$ and $\Delta t = 31.25\,\mathrm{ms}$,
+sufficient to resolve short elastic transients at the chosen grid.
+
+
+All spectrograms are log-amplitude scaled and standardized independently on a
+per-window basis. This normalization removes explicit dependence on absolute
+signal amplitude, physical units, and sensor modality while preserving the
+relative organization of energy across time and frequency. As a result, the
+operator responds to dimensionless morphological structure rather than to
+scale-dependent or stationary statistical features.
+\subsection{Latent Morphological Operator and Anomaly Scoring}
+\label{sec:operator_scoring}
+Inputs to the frozen encoder are standardized log-amplitude spectrogram windows
+constructed with a fixed preprocessing pipeline (Sec.~\ref{sec:tf_preprocessing}).
+Per-window standardization suppresses absolute scale while preserving relative
+time--frequency organization.
+We emphasize that although the operator $\mathcal{F}$ is trained on a source domain,
+it is not adapted, re-optimized, or re-calibrated in any way for the target domains.
+All target-domain results therefore arise from the fixed geometry of the latent space
+induced during source-domain training.
+Throughout, $\mathcal{F}$ is treated as a fixed measurement instrument: after source-domain training, the encoder is frozen and used only to induce a geometry on normalized time--frequency inputs. The downstream anomaly score and threshold are defined independently from this geometry using nominal target-domain reference data, without any optimization against abnormal conditions.
+
+\paragraph{Latent morphological operator.}
+
+The latent operator $\mathcal{F}$ acts as a fixed measurement map from normalized
+time--frequency structure to a latent representation,
+\begin{equation}
+\mathcal{F}: X \in \mathbb{R}^{M \times N} \;\mapsto\; z \in \mathcal{Z} \subset
+\mathbb{R}^{d},
+\end{equation}
+$z$ empirically reflects structural regularities associated with elastic transient organization. 
+In this work, $\mathcal{F}$ is a convolutional encoder that produces a pooled
+$d=1280$ embedding. The classifier head used during source-domain training is
+discarded, and the encoder is frozen for all target-domain experiments.
+
+\paragraph{Score convention.}
+Throughout this work we report the \emph{distance-form} Mahalanobis score
+\begin{equation}
+\mathcal{S}(z)=\sqrt{(z-\mu_0)^{\top}\Sigma_{\mathrm{LW}}^{-1}(z-\mu_0)}.
+\label{eq:maha}
+\end{equation}
+All quantiles, detection thresholds, tail statistics, and Health Index definitions
+are computed consistently on $\mathcal{S}$ in Eq.~(\ref{eq:maha}).
+The corresponding quadratic form $\mathcal{S}^2(z)$ is related by
+$\mathcal{S}(z)=\sqrt{\mathcal{S}^2(z)}$ and is not used elsewhere for thresholding,
+aggregation, or reporting.
+\paragraph{Aggregation levels and AUC metrics.}
+We report performance at three complementary aggregation levels.
+At the window level, $\mathrm{AUC}_{\mathrm{win}}$ evaluates instantaneous discrimination
+between nominal and faulty windows.
+At the file level, $\mathrm{AUC}_{\mathrm{file}}$ is computed by aggregating window scores
+within each signal file using the arithmetic mean, reflecting diagnostic separability
+when labels are associated with entire recordings.
+For run-to-failure experiments, we report a record-level metric $\mathrm{AUC}_{\mathrm{rec}}$,
+where each temporal record is summarized by a high quantile ($q=0.95$ or $0.99$) of its
+window scores, enabling early detection under a fixed false-alarm threshold.
+
+\paragraph{Anomaly scoring.}
+Deviations from nominal behavior are quantified relative to a reference
+distribution $\mathcal{P}_0$ constructed from embeddings associated with an
+operational early-life period in the target domain. Given the high dimensionality
+of the embedding space ($d=1280$) and the finite sample size of the reference set,
+standard covariance estimation is ill-conditioned. 
+More broadly, anomaly detection aims to identify deviations from nominal
+behavior without explicit supervision on abnormal classes.
+Comprehensive surveys have highlighted the diversity of statistical,
+distance-based, and learning-based approaches to this problem
+\cite{chandola2009anomaly}.
+In high-dimensional settings, distance-based detectors in learned embedding
+spaces have emerged as a practical compromise between interpretability and
+expressivity \cite{ruff2018deeponeclass}.
+We therefore employ the Ledoit--Wolf shrinkage estimator~\cite{Ledoit2004} to obtain a well-conditioned
+covariance matrix $\Sigma_{\mathrm{LW}}$ and compute anomaly scores using Eq.~(\ref{eq:maha}).
+We use the distance-form Mahalanobis score so that all thresholds and tail statistics are defined on a consistent scale.
+
+\subsection{Run-to-Failure Analysis: Drift, Time-to-Detection, and Health Index}
+\label{sec:ims_protocol}
+
+To assess whether the latent operator $\mathcal{F}$ captures physically
+meaningful degradation dynamics rather than static state separation, we apply
+it to the IMS--NASA run-to-failure bearing dataset. Unlike discrete fault
+benchmarks, this dataset provides a continuous temporal record from nominal
+operation to catastrophic failure, enabling direct analysis of progressive
+damage accumulation, early deviation, and long-term drift under realistic
+operating conditions.
+The IMS--NASA run-to-failure dataset provides full-life vibration recordings of
+rolling-element bearings from nominal operation to catastrophic failure and is
+widely used for studying degradation dynamics and prognostics.
+The dataset was originally released through the NASA Ames Prognostics Data
+Repository \cite{Qiu2006IMS}.
+
+\paragraph{Baseline definition.}
+
+A nominal reference distribution $\mathcal{P}_0$ is constructed from the first
+$N$ records of each run, corresponding to early-life operation. Unless stated
+otherwise, we use $N=100$; for IMS 2nd\_test, where an extended steady-state
+segment is present, we use $N=200$. No data from later stages of the run are
+used to define the baseline or detection thresholds.
+
+\paragraph{Health Index.}
+
+To obtain a time-resolved measure of system condition, window-level anomaly
+scores are aggregated at the record level using upper quantiles of their
+empirical distribution. For a record acquired at time $t$, we define the
+dimensionless Health Index
+\begin{equation}
+HI(t)=\frac{s_q(t)}{\tau},
+\end{equation}
+where $s_q(t)$ is the $q$-th quantile of the window-level anomaly scores within
+the record ($q=0.99$ unless otherwise specified), and $\tau$ is the fixed
+detection threshold derived from the nominal reference distribution
+$\mathcal{P}_0$.
+
+By construction, $HI(t)=1$ corresponds to the extreme tail of nominal operation
+under the chosen false-alarm convention, while $HI(t)>1$ indicates excess
+occupancy of structurally anomalous transient events. This definition suppresses
+sensitivity to shifts in central tendency and instead emphasizes the emergence
+and persistence of rare, high-severity deviations in latent space, consistent
+with extreme-event detection paradigms in experimental physics.
+
+Normalization by $\tau$ renders the Health Index dimensionless and directly
+comparable across runs, independent of absolute score scale or operating
+conditions.
+
+\paragraph{Time-to-Detection (TTD).}
+
+We define the Time-to-Detection (TTD) as the earliest record at which the Health
+Index persistently exceeds unity,
+\begin{equation}
+TTD = \min\left\{ t \;:\; HI(t) > 1 \;\; \text{for at least } K \text{ consecutive records} \right\},
+\end{equation}
+with $K=3$ unless otherwise stated. This persistence criterion suppresses
+spurious threshold crossings due to isolated fluctuations and identifies the
+earliest statistically significant deviation from the nominal elastic
+transient morphology under a fixed false-alarm rate.
+
+TTD is computed without access to failure labels, trend fitting, or
+domain-specific thresholds, and therefore constitutes an unsupervised early
+warning indicator derived entirely from the fixed operator response.
+
+\paragraph{Drift analysis.}
+
+To determine whether the temporal evolution of the Health Index reflects
+systematic degradation rather than stochastic variability, we quantify
+monotonic drift using Spearman’s rank correlation coefficient $\rho$ between
+$HI(t)$ and record index. Spearman correlation is chosen to capture monotonic
+trends without assuming linearity or a specific functional form for the
+degradation trajectory.
+
+A statistically significant positive $\rho$ indicates ordered progression of
+elastic transient morphology over the component lifetime. Across all IMS runs,
+we observe strong positive correlations with extremely small $p$-values,
+confirming that the latent operator captures time-ordered structural evolution
+rather than isolated outliers or random excursions.
+
+\paragraph{Interpretation.}
+
+Both the Health Index and the Time-to-Detection are derived entirely from a
+frozen operator trained on interferometric strain transients, without
+retraining, calibration, or adaptation to the IMS dataset. Consequently, any
+temporal structure observed in $HI(t)$ reflects alignment between the evolving
+elastic transient morphology of the mechanical system and the structural
+regularities encoded by $\mathcal{F}$, rather than supervised learning,
+explicit modeling of bearing dynamics, or retrospective optimization.
+
+This protocol enables a direct and falsifiable evaluation of zero-shot
+degradation tracking and early deviation detection in a physically aging
+system, forming the central experimental test of cross-domain morphological
+sensitivity in this work.
+\subsection{IMS Controlled-Split Protocol for Encoder Comparisons}
+\label{sec:ims_split_protocol}
+
+The IMS run-to-failure experiments in Sec.~\ref{sec:ims_protocol} use the full trajectories
+to quantify drift, early deviation, and health-index evolution. In addition, we introduce
+a controlled-split evaluation protocol designed specifically to (i) enable matched
+comparisons between different frozen encoders and (ii) isolate regimes where degradation
+manifests as intermittent elastic impacts rather than as global spectral drift.
+
+For each selected IMS trajectory, we construct three disjoint record sets:
+(i) a nominal reference set $\mathcal{P}_0$ drawn from the early-life segment,
+(ii) a held-out nominal test segment, and (iii) a late-life abnormal segment.
+In all experiments reported in Sec.~\ref{sec:results_imagenet}, we use
+$N_0=120$ records for $\mathcal{P}_0$, and evaluate on $N_{\mathrm{nom}}=250$ held-out nominal
+records and $N_{\mathrm{abn}}=250$ late-life records, yielding 620 records per trajectory.
+No records from the test segments are used to estimate $\mu_0$, $\Sigma_{\mathrm{LW}}$,
+or the threshold $\tau$.
+
+All records are processed using the identical STFT and per-window standardization pipeline
+described in Sec.~\ref{sec:tf_preprocessing}. Window-level anomaly scores are computed using
+the Mahalanobis distance in latent space (Sec.~\ref{sec:operator_scoring}) and aggregated to
+record-level statistics using the $q=0.95$ quantile, denoted $s_{0.95}(t)$.
+Performance is summarized using (i) window-level discrimination $\mathrm{AUC}_{\mathrm{win}}$,
+(ii) record-level discrimination $\mathrm{AUC}_{\mathrm{rec}}$ computed from $s_{0.95}(t)$,
+and (iii) tail enrichment $\Lambda_{\mathrm{tail}}$ under the fixed nominal threshold
+$\tau=Q_{0.999}(\mathcal{P}_0)$.
+
+\paragraph{Matched generic baseline (ImageNet).}
+To test whether the observed cross-domain sensitivity is specific to the interferometric
+morphological prior, we repeat the entire controlled-split protocol using a frozen
+EfficientNet-B0 encoder pre-trained on ImageNet. This baseline shares the same architecture,
+embedding dimensionality ($d=1280$), preprocessing, anomaly scoring, thresholding, and
+aggregation. The only difference is the source of the frozen representation:
+(i) interferometric strain transients (morphological operator $\mathcal{F}$) versus
+(ii) natural-image supervision (generic baseline).
+
+\paragraph{Physical descriptors (RMS and kurtosis).}
+To probe the physical observable driving separation in the intermittent regime, we compute
+classical record-level descriptors on the raw time series (channel 0): Root Mean Square (RMS)
+as a proxy for signal energy and kurtosis as a proxy for impulsivity. We report correlations
+between these descriptors and the record-level anomaly statistic $s_{0.95}$ for both encoders.
+\subsection{Statistical Thresholding and Tail Enrichment}
+\label{sec:tail_enrichment}
+
+Anomalous behavior is characterized relative to a fixed nominal reference
+distribution $\mathcal{P}_0$, constructed exclusively from early-life or
+known-normal data and held fixed throughout all experiments. No information
+from abnormal conditions enters the estimation of thresholds or scores at any
+stage, ensuring a strictly one-sided and physically interpretable protocol.
+
+Rather than posing anomaly detection as a binary classification problem, we
+adopt a tail-based characterization aligned with rare-event analyses in
+experimental physics, where meaningful deviations appear as excess occupancy in
+the extreme tails of a background distribution rather than as shifts in central
+tendency. No sequential change-detection schemes (e.g., CUSUM, SPRT, or EWMA) are
+required: all results are derived solely from fixed-window anomaly scores,
+record-level aggregation, and quantile-based thresholds defined \emph{a priori}
+from $\mathcal{P}_0$. Accordingly, $\Lambda_{\mathrm{tail}}$ is interpreted as a
+descriptive effect-size measure under a fixed nominal false-alarm convention,
+not as a discovery statistic or a claim of universality.
+
+\paragraph{Quantile-based thresholding.}
+A detection threshold is defined as a high quantile of the nominal score
+distribution,
+\begin{equation}
+\tau = Q_q(\mathcal{P}_0),
+\end{equation}
+with $q=0.999$ unless otherwise stated, corresponding to a nominal false-alarm
+probability $1-q=10^{-3}$. The threshold is estimated once from $\mathcal{P}_0$
+and applied uniformly across all datasets, runs, and experimental conditions.
+Finite-sample variability of $\tau$ is negligible compared to the dynamic range
+observed under abnormal conditions, and the results are stable under moderate
+variations of $q$.
+
+\paragraph{Tail enrichment.}
+Given the fixed threshold $\tau$, we define the tail enrichment factor
+\begin{equation}
+\Lambda_{\mathrm{tail}} =
+\frac{
+\mathbb{P}\!\left(\mathcal{S}(z)>\tau \mid \mathrm{abnormal}\right)
+}{
+\mathbb{P}\!\left(\mathcal{S}(z)>\tau \mid \mathrm{nominal}\right)
+}.
+\end{equation}
+By construction, the denominator equals $1-q$, providing a normalized and
+physically interpretable baseline. Values
+$\Lambda_{\mathrm{tail}}\gg 1$ indicate strong excess occupancy of extreme latent
+events relative to nominal operation, while
+$\Lambda_{\mathrm{tail}}\approx 1$ indicates no measurable enrichment beyond
+statistical expectation. This formulation emphasizes changes in extreme-event
+occupancy and is insensitive to shifts in mean score or bulk statistics.
+
+\paragraph{Robustness and physical selectivity.}
+Tail enrichment remains stable across high-quantile choices
+$q\in[0.995,\,0.9995]$, with $\Lambda_{\mathrm{tail}}$ varying by less than a
+factor of two. In contrast, negative-control conditions—including electrically
+dominated signals and controlled morphology-destruction transformations—yield
+$\Lambda_{\mathrm{tail}}\approx 1$ independently of threshold choice.
+
+As shown in Sec.~\ref{sec:results}, rotating mechanical systems under fault or
+advanced degradation exhibit pronounced enrichment
+($\Lambda_{\mathrm{tail}}\sim10^{1}$--$10^{2}$), whereas systems lacking coherent
+elastic wave propagation do not. This contrast demonstrates that extreme-score
+enrichment arises only when structured time--frequency organization associated
+with elastic transients is preserved. Accordingly, $\Lambda_{\mathrm{tail}}$
+quantifies the response of the fixed operator $\mathcal{F}$ to preserved elastic
+transient morphology, rather than serving as a hypothesis-test statistic.
+
+\subsection{Controlled Morphological Degradation}
+\label{sec:degradation_protocol}
+
+To determine whether the observed cross-domain anomaly sensitivity reflects a
+physically meaningful structural effect rather than a statistical artefact, we
+introduce a controlled degradation protocol that selectively disrupts the
+\emph{morphological organization} of elastic transients. The central objective is to progressively destroy coherent time--frequency structure while preserving,
+up to per-window normalization, low-order amplitude statistics.
+
+If anomaly sensitivity were driven by generic distributional mismatch, signal
+energy, or variance-based cues, detection performance would remain largely
+invariant under such transformations. Conversely, if sensitivity is governed by
+structured elastic transient morphology, performance should degrade in a
+selective and transformation-dependent manner. The protocol therefore
+constitutes a direct falsification test of the physical hypothesis underlying
+the reported zero-shot transfer.
+
+\paragraph{Design principle.}
+
+All transformations are constructed such that, after per-window normalization,
+first- and second-order amplitude moments are conserved. As a result, trivial
+cues related to signal power, variance, or stationary spectral content are
+suppressed. Any systematic loss of anomaly sensitivity must therefore arise
+from disruption of coherent time--frequency organization rather than from
+changes in marginal statistics.
+
+\paragraph{Transformation families.}
+
+We consider three classes of morphology-altering transformations, each applied
+in the time domain prior to time--frequency projection:
+
+\begin{enumerate}
+  \item \emph{Spectral low-pass filtering}, which progressively removes
+  high-frequency components while preserving integrated signal energy.
+  \item \emph{Temporal smearing}, implemented via convolution with a finite-width
+  kernel, degrading time localization without altering total spectral power.
+  \item \emph{Reverberation-induced self-interference}, implemented through
+  multi-tap delay lines that introduce phase dispersion and temporal
+  incoherence while preserving spectral support.
+\end{enumerate}
+
+All transformed signals are subsequently standardized on a per-window basis,
+ensuring matched mean and variance relative to the corresponding untransformed
+windows.
+
+\paragraph{Degradation levels.}
+
+For each transformation family, three degradation levels are defined: a control
+condition ($L_0$) with no additional morphological perturbation beyond the
+intrinsic processing pipeline; a moderate degradation level ($L_1$),
+corresponding to partial disruption of transient coherence; and a strong
+degradation level ($L_2$), designed to effectively destroy coherent
+time--frequency organization through aggressive filtering, smearing, or
+phase-dispersive interference.
+
+\paragraph{Falsifiable prediction.}
+
+If anomaly sensitivity is governed by elastic transient morphology, detection
+performance should degrade selectively under transformations that disrupt
+coherent time--frequency organization, with distinct responses across
+transformation families and degradation levels. In contrast, invariance of
+performance across all transformations would falsify the physical
+interpretation and indicate sensitivity to generic statistical cues. The
+results reported in Sec.~\ref{sec:results} directly test this prediction.
+
+\section{Results}
+\label{sec:results}
+\subsection{Run-to-Failure Degradation and Early Warning (IMS--NASA)}
+\label{sec:results_ims}
+
+We first evaluate the frozen latent operator $\mathcal{F}$ on the IMS--NASA
+run-to-failure bearing dataset, which captures the full temporal evolution of
+mechanical degradation from nominal operation to catastrophic failure. Unlike
+static fault-classification benchmarks, this regime probes whether the operator
+can track \emph{progressive physical degradation}, identify early deviation
+from nominal behavior, and yield an interpretable health indicator under a
+strict zero-shot protocol.
+
+Across all runs, anomaly scores are computed relative to a fixed nominal
+baseline $\mathcal{P}_0$ derived from the early-life segment of each trajectory.
+A detection threshold $\tau$ is defined as the $q=0.999$ quantile of the nominal
+distribution, fixing the false-alarm probability \emph{a priori}. Temporal
+evolution is characterized using the normalized Health Index
+$HI(t)=s_{q}(t)/\tau$, hereafter we use $HI(t)$ with $q=0.99$ unless otherwise stated.
+
+\paragraph{Run 1: Noisy progressive degradation.}
+
+In the first trajectory (IMS 1st\_test), classical separability metrics are weak
+(window-level $\mathrm{AUC} \approx 0.55$, record-level
+$\mathrm{AUC} \approx 0.62$), indicating that nominal and fault states are not
+cleanly separable in a static classification sense. Despite this, the operator
+exhibits a clear and statistically significant monotonic drift in extreme-score
+statistics. The Health Index increases systematically over time, with a strong
+positive Spearman correlation ($\rho \approx 0.56$, $p \ll 10^{-40}$).
+
+Early deviation is detected well before final failure: the exceedance rate
+first surpasses $1\%$ at record index 51, and the normalized Health Index crosses
+unity at record index 99. The maximum observed severity reaches
+$HI_{q99,\max} \approx 14.7$. This behavior indicates gradual structural
+degradation rather than a sharp, class-separable transition.
+
+\paragraph{Run 2: Clean degradation regime.}
+
+The second trajectory (IMS 2nd\_test) exhibits a markedly cleaner degradation
+pattern. Nominal and abnormal states occupy well-separated regions of latent
+space ($\mathrm{AUC}_{\mathrm{win}} \approx 0.92$,
+$\mathrm{AUC}_{\mathrm{rec}} \approx 0.99$), but the most salient feature is the
+exceptionally early emergence of extreme latent events.
+
+The Health Index shows a strong monotonic increase with time
+($\rho \approx 0.68$, $p \ll 10^{-70}$) and crosses the nominal threshold at
+record index 11, long before final failure. Tail enrichment is pronounced
+($\Lambda_{\mathrm{tail}} \approx 2.5\times10^{2}$), and the maximum severity
+reaches $HI_{q99,\max} \approx 20.5$, indicating sustained accumulation of
+extreme morphological deviations without saturation.
+
+\paragraph{Run 3: Rapid-onset failure.}
+
+The third trajectory (IMS 3rd\_test) displays a rapid-onset degradation regime.
+The Health Index remains stable throughout nominal operation before undergoing
+a sharp transition during the late-life phase. Separability is high
+($\mathrm{AUC}_{\mathrm{win}} \approx 0.90$,
+$\mathrm{AUC}_{\mathrm{rec}} \approx 0.98$), and extreme-event occupancy
+increases abruptly, yielding a large tail enrichment
+($\Lambda_{\mathrm{tail}} \approx 8.6\times10^{2}$).
+
+The Health Index rapidly exceeds unity and reaches values $HI_{q99} \gg 10$,
+signaling imminent failure with high confidence. This trajectory is consistent
+with a regime characterized by prolonged stable operation followed by a rapid
+structural collapse.
+
+\paragraph{Interpretation across runs.}
+
+Across all three trajectories, the latent operator consistently captures
+monotonic drift in extreme latent events, despite substantial variation in
+static separability metrics. This demonstrates that window-level or record-level
+AUC is not the primary indicator of physical sensitivity in run-to-failure
+settings. Instead, degradation manifests as a progressive enrichment of rare,
+structurally anomalous transients.
+
+These results establish the IMS--NASA experiments as the central physical
+evidence of cross-domain transfer: a representation trained exclusively on
+interferometric strain transients functions as a zero-shot morphological
+operator capable of tracking mechanical degradation and providing early warning
+in a real run-to-failure system.
+\subsection{Zero-Shot Transfer in Static Fault Regimes (CWRU and VSB)}
+\label{sec:results_zeroshot}
+
+Having established that the latent operator $\mathcal{F}$ captures progressive
+degradation and early deviation in run-to-failure systems (IMS--NASA), we next
+evaluate its behavior in \emph{static fault regimes}, where mechanical states
+are discretely labeled but do not evolve continuously in time. This setting
+serves as a complementary validation of cross-domain transfer, testing whether
+preserved elastic transient morphology also yields separability under
+controlled, steady-state fault conditions.
+
+The operator is trained exclusively on interferometric strain transients and is
+applied without modification in a strict zero-shot setting.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.90\linewidth]{figures/Fig3.pdf}
+  \caption{
+  \textbf{Zero-shot performance and physical specificity.}
+  Receiver operating characteristic (ROC) curves for (a) the CWRU rotating
+  machinery dataset (mechanical domain) and (b) the VSB electrical control
+  dataset (electromagnetic domain).
+  Strong discrimination is observed only in mechanically governed systems where
+  elastic transient morphology is preserved, while performance collapses toward
+  chance in electrically dominated signals, establishing a clear physical
+  boundary for zero-shot transfer.
+  }
+  \label{fig:roc}
+\end{figure}
+
+Figure~\ref{fig:roc}(a) reports receiver operating characteristic (ROC) curves
+for mechanically induced fault conditions in the CWRU bearing dataset. Strong
+discrimination is observed, with window-level predictions yielding
+$\mathrm{AUC}_{\mathrm{win}} \approx 0.90$ and file-level aggregation producing
+near-perfect separability,
+$\mathrm{AUC}_{\mathrm{file}} \approx 0.99$. 
+
+The improvement from window-level to file-level discrimination indicates that
+anomalous morphology is not confined to isolated transient windows, but recurs
+coherently across multiple realizations within a recording. This persistence is
+consistent with the behavior observed in the IMS run-to-failure experiments,
+where degradation manifests as repeated excursions into the extreme tail of the
+latent distribution rather than as isolated outliers.
+
+As a negative control, the same frozen operator is applied to electrically
+dominated vibration signals from the VSB dataset, which are characterized by
+narrowband electromagnetic interference and incoherent sensor noise rather than
+mechanically mediated elastic transients. As shown in
+Fig.~\ref{fig:roc}(b), discrimination collapses toward chance in this regime,
+with no measurable tail enrichment
+($\Lambda_{\mathrm{tail}} \approx 1$ at the nominal false-alarm rate).
+
+The sharp contrast between mechanically governed and electrically dominated
+systems establishes a clear physical boundary for zero-shot transfer. High
+anomaly sensitivity emerges only in systems governed by elastic wave
+propagation in constrained media, while systems lacking such propagation
+exhibit weak and non-selective responses. This behavior confirms that the latent
+operator does not respond generically to non-Gaussian statistics, signal
+energy, or distributional shifts, but instead requires coherent elastic
+organization to produce separability.
+
+\paragraph{Separation across physical scales.}
+
+For context, source-domain interferometric transients correspond to
+dimensionless strain amplitudes of order $h \sim 10^{-21}$ at characteristic
+frequencies of $\mathcal{O}(10^{2})\,\mathrm{Hz}$. In contrast, bearing faults in
+the CWRU dataset involve localized mechanical impacts producing accelerations
+of $\mathcal{O}(10^{1})\,g$ at characteristic frequencies of
+$\mathcal{O}(10^{3})\,\mathrm{Hz}$. The observed zero-shot separability therefore spans radically different sensing modalities,
+physical units, and characteristic frequency ranges, reinforcing that anomaly sensitivity is
+not tied to absolute scale or sensor modality, but to preserved organization in elastic
+transient morphology.
+\subsection{Falsification via a Generic Feature Baseline (ImageNet) on IMS}
+\label{sec:results_imagenet}
+
+A central question is whether the observed anomaly sensitivity reflects a specific prior
+for elastic transient morphology learned from interferometric instrumentation, or whether
+any high-capacity convolutional encoder would produce similar behavior under the same
+pipeline. To falsify the ``generic CNN features'' hypothesis, we repeat the IMS analysis
+under the controlled-split protocol defined in Sec.~\ref{sec:ims_split_protocol}, comparing
+the interferometric operator with a matched EfficientNet-B0 encoder pre-trained on ImageNet.
+
+Table~\ref{tab:ims_imagenet} summarizes discrimination and extreme-event statistics for the
+selected IMS trajectories. In the clean degradation regime (2nd\_test), both encoders reach
+high record-level separability, consistent with faults that induce strong global structure.
+However, in the intermittent regime (IMS 4th\_test), where degradation manifests as sparse impacts
+embedded in a noisy background, the generic baseline collapses: tail enrichment remains near
+the nominal expectation ($\Lambda_{\mathrm{tail}}\approx 2$), while the interferometric operator
+exhibits massive extreme-event amplification ($\Lambda_{\mathrm{tail}}\approx 860$) under the
+same fixed false-alarm rate.
+
+\begin{table}[t]
+\caption{\label{tab:ims_imagenet}
+IMS controlled-split evaluation (Sec.~\ref{sec:ims_split_protocol}) comparing the frozen
+interferometric morphological operator and a matched ImageNet-pretrained baseline.
+Record-level metrics use the $q=0.95$ score quantile $s_{0.95}$; the tail threshold is fixed
+as $\tau = Q_{0.999}(\mathcal{P}_0)$.
+}
+\begin{ruledtabular}
+\begin{tabular}{lcccccc}
+& \multicolumn{3}{c}{Morphological (LIGO)} & \multicolumn{3}{c}{Generic (ImageNet)} \\
+\cline{2-4}\cline{5-7}
+IMS run
+& $\mathrm{AUC}_{\mathrm{win}}$
+& $\mathrm{AUC}_{\mathrm{rec}}$
+& $\Lambda_{\mathrm{tail}}$
+& $\mathrm{AUC}_{\mathrm{win}}$
+& $\mathrm{AUC}_{\mathrm{rec}}$
+& $\Lambda_{\mathrm{tail}}$ \\
+\hline
+1st\_test
+& 0.616 & 0.702 & 1.27
+& 0.543 & 0.538 & 1.60 \\
+2nd\_test
+& 0.999 & 1.000 & 191.6
+& 0.921 & 0.997 & 19.1 \\
+4th\_test
+& 0.901 & 0.982 & \textbf{859.5}
+& 0.653 & 0.652 & \textbf{1.97} \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+
+This dissociation indicates that sensitivity to weak or intermittent elastic anomalies is
+not a generic property of CNN feature extraction, but depends on the latent geometry induced
+by training on interferometric non-Gaussian transients.
+
+\subsection{Mechanism: Enhanced Coupling to Impulsivity (Kurtosis) in the Intermittent Regime}
+\label{sec:results_kurtosis}
+
+To clarify why the interferometric operator outperforms the generic baseline in the
+intermittent regime, we analyze the coupling between the record-level anomaly statistic
+$s_{0.95}$ and classical physical descriptors computed on the raw time series: RMS amplitude
+(proxy for signal energy) and kurtosis (proxy for impulsivity).
+
+Table~\ref{tab:kurtosis_rms} reports record-level Pearson correlations for  IMS 4th\_test under the
+controlled-split protocol. While both representations correlate with RMS, the interferometric
+operator exhibits stronger coupling to kurtosis, consistent with higher sensitivity to sparse,
+impulsive elastic impacts embedded in a noisy background. This enhanced impulsivity coupling
+explains the divergence in extreme-event statistics: the generic baseline fails to enrich the
+tail until anomalies alter global texture, whereas the interferometric operator selectively
+amplifies rare impulsive transients.
+
+\begin{table}[t]
+\caption{\label{tab:kurtosis_rms}
+Record-level Pearson correlations between the aggregated anomaly statistic $s_{0.95}$ and
+physical descriptors in the intermittent regime (IMS 4th\_test).
+}
+\begin{ruledtabular}
+\begin{tabular}{lcc}
+Representation & Corr.\ w/ Kurtosis & Corr.\ w/ RMS \\
+\hline
+Morphological (LIGO) & 0.7789 & 0.8998 \\
+Generic (ImageNet) & 0.6829 & 0.7520 \\
+\end{tabular}
+\end{ruledtabular}
+\end{table}
+\subsection{Controlled Morphological Degradation}
+
+To determine whether cross-domain anomaly sensitivity arises from preserved
+time--frequency organization rather than from marginal statistics or signal
+energy, we evaluate the frozen operator $\mathcal{F}$ under a set of controlled
+morphological perturbations. Detection performance is assessed using the
+protocol defined in Sec.~\ref{sec:degradation_protocol}, which selectively
+disrupts transient structure via (i) spectral low-pass filtering,
+(ii) temporal smearing, and (iii) reverberation-induced self-interference.
+
+All transformed signals are renormalized on a per-window basis, ensuring that
+any change in performance cannot be attributed to shifts in first- or
+second-order amplitude statistics. These transformations are not used for data
+augmentation or model regularization, but solely as controlled physical
+interventions designed to probe the operator’s sensitivity to coherent
+time--frequency organization.
+
+\begin{figure}[b]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/Fig4.pdf}
+  \caption{
+  \textbf{Falsification via controlled morphological destruction.}
+  Zero-shot detection performance, quantified by window-level $\mathrm{AUC}$,
+  under transformations that selectively degrade coherent time--frequency
+  structure while preserving marginal amplitude statistics.
+  Selective and transformation-dependent performance degradation indicates
+  sensitivity to elastic transient morphology rather than to signal energy or
+  stationary statistics.
+  }
+  \label{fig:morph}
+\end{figure}
+
+Figure~\ref{fig:morph} reports the window-level area under the ROC curve
+($\mathrm{AUC}_{\mathrm{win}}$) as a function of degradation level for each
+transformation family. While $\mathrm{AUC}$ is used here as a convenient
+summary statistic, the emphasis is on relative trends across transformations
+rather than on absolute classification performance.
+
+The response of $\mathcal{F}$ depends strongly on the physical nature of the
+morphological disruption. Spectral low-pass filtering produces a monotonic
+collapse in anomaly sensitivity as the cutoff frequency is reduced. This trend
+reflects the progressive removal of high-frequency components that support
+sharp transient localization, broadband interference, and elastic mode
+coupling—features central to the morphology encoded in the latent space.
+
+Temporal smearing induces a more moderate degradation. Although transient
+localization in time is weakened, the global organization of energy across
+frequency bands remains partially intact, allowing $\mathcal{F}$ to retain a
+substantial fraction of its discriminative power. This behavior indicates that
+the operator is not narrowly tuned to impulsive events, but responds to
+extended, yet coherent, elastic structure.
+
+In contrast, reverberation does not produce a monotonic loss of sensitivity.
+Under reverberation, the operator maintains
+$\mathrm{AUC}_{\mathrm{win}} \approx 0.90$ even at strong degradation levels,
+whereas low-pass filtering reduces
+$\mathrm{AUC}_{\mathrm{win}}$ to approximately $0.62$.
+Reverberation redistributes coherent energy across time through delayed
+self-interference while preserving spectral support, indicating that the
+operator responds to the presence and organization of structured elastic
+transients rather than to precise temporal alignment or isolated high-amplitude
+peaks.
+
+Taken together, these perturbation experiments constitute a direct and
+falsifiable test of the underlying physical hypothesis. If anomaly sensitivity
+were driven by generic statistical cues, signal energy, or
+architecture-dependent biases, performance would remain approximately invariant
+under amplitude-preserving transformations. Instead, separability degrades
+selectively in a transformation-dependent manner that tracks the preservation
+or destruction of coherent elastic transient morphology. This behavior supports
+the interpretation that cross-domain anomaly sensitivity is governed by
+structured elastic wave phenomena rather than by distributional or
+energy-based effects.
+\subsection{Physical Interpretability and Comparison with Reconstruction-Based Baselines}
+\label{sec:results_physical}
+
+To assess whether the observed cross-domain anomaly sensitivity reflects
+physically meaningful structure rather than generic statistical effects, we
+analyze the anomaly scores produced by the latent operator $\mathcal{F}$ and
+compare them with those obtained from a reconstruction-based convolutional
+autoencoder (ConvAE) baseline. The purpose of this comparison is not to rank
+models by detection performance, but to use each approach as a diagnostic
+instrument probing which physical observables dominate their respective anomaly
+responses.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/Fig5.pdf}
+  \caption{
+  \textbf{Physical interpretability of anomaly scores.}
+  Pearson correlation between anomaly scores and classical signal descriptors.
+  Reconstruction-based scores (ConvAE) exhibit stronger coupling to amplitude-
+  related statistics, whereas the morphological operator $\mathcal{F}$ correlates
+  primarily with Effective Bandwidth and Spectral Entropy and remains largely
+  orthogonal to signal energy.
+  }
+  \label{fig:physcorr}
+\end{figure}
+
+Both operators are evaluated on identical target-domain data under the same
+preprocessing and scoring pipeline. Their window-level anomaly scores are
+correlated with a set of classical signal descriptors commonly used in vibration
+analysis, including amplitude-based measures (e.g., RMS and peak value) and
+structure-related observables (e.g., effective bandwidth and spectral entropy).
+Figure~\ref{fig:physcorr} reports the resulting Pearson correlation
+coefficients.
+
+Under the present protocol, ConvAE anomaly scores exhibit non-negligible
+correlations with amplitude-related descriptors and broader, less selective
+correlations with higher-order spectral measures. This behavior is consistent
+with reconstruction error acting as a generic measure of deviation from the
+training manifold, implicitly coupling sensitivity to a mixture of signal
+energy, variance, and spectral content.
+
+In contrast, anomaly scores produced by the latent operator $\mathcal{F}$ are
+nearly orthogonal to amplitude-based measures, including RMS and peak value,
+while exhibiting their strongest correlations with effective bandwidth
+($r \approx 0.63$) and spectral entropy ($r \approx 0.49$). These observables
+quantify the redistribution and dispersion of energy across the
+time--frequency plane and serve as proxies for the coherence and complexity of
+elastic wave packets, independent of absolute signal scale or sensor modality.
+
+This correlation structure indicates that $\mathcal{F}$ responds preferentially
+to morphological decoherence—i.e., disruption of structured time--frequency
+organization—rather than to increases in signal power or variance. In physical
+terms, the operator is sensitive to \emph{how} energy is organized across time
+and frequency, not to \emph{how much} energy is present.
+
+The contrasting correlation patterns of the ConvAE and $\mathcal{F}$ therefore
+highlight a fundamental difference in the information encoded by the two
+approaches. Reconstruction-based methods remain implicitly tied to the energy
+and variance structure of the training data, while the latent operator
+$\mathcal{F}$ isolates structural regularities associated with elastic wave
+propagation in constrained media. This decoupling from amplitude-driven
+detection provides a physically grounded interpretation of the selective
+zero-shot transfer observed in the preceding sections.
+\FloatBarrier
+
+\subsection{Tail Enrichment of Extreme Morphological Events}
+
+Beyond aggregate discrimination metrics, we characterize anomaly sensitivity
+through the statistics of extreme events in the latent space. This analysis is
+deliberately aligned with rare-event detection paradigms in experimental
+physics, including gravitational-wave instrumentation, where physically
+meaningful signals are identified not by shifts in average behavior but by
+excess occupancy in the extreme tails of background distributions.
+
+Rather than interpreting anomaly scores through their mean or variance, we
+analyze exceedance statistics relative to a fixed reference distribution
+constructed from nominal operation. Figure~\ref{fig:tail} shows the probability
+density of window-level anomaly scores $\mathcal{S}$ under nominal and
+fault-induced mechanical conditions for the reverberation condition $L_1$.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\linewidth]{figures/Fig6.pdf}
+  \caption{
+  \textbf{Tail enrichment of morphological anomaly scores in the latent space.}
+  Log-scale probability density of \emph{window-level} anomaly scores $\mathcal{S}$
+  for nominal (gray) and fault-induced (black) mechanical states under the
+  reverberation condition $L_1$.
+  The detection threshold $\tau$ is defined as the $q=0.999$ quantile of the
+  nominal distribution, corresponding to a nominal false-alarm rate of
+  $1-q=10^{-3}$.
+  Densities are estimated using logarithmically spaced histogram bins.
+  Beyond this threshold, abnormal windows exhibit a pronounced excess of extreme
+  events, with exceedance probability
+  $\mathbb{P}(\mathcal{S}>\tau \mid \mathrm{abnormal})=6.49\times10^{-2}$,
+  yielding a tail enrichment factor
+  $\Lambda_{\mathrm{tail}}=64.9$ (95\% CI: [55.7, 74.5]).
+  The separation is dominated by rare, high-score excursions rather than by
+  shifts in central tendency.
+  }
+  \label{fig:tail}
+\end{figure}
+
+While the nominal anomaly-score distribution exhibits a rapidly decaying tail,
+fault-induced mechanical states display a pronounced excess of extreme latent
+events. At a fixed nominal false-alarm rate of $10^{-3}$, defined by the
+$q=0.999$ quantile of the nominal distribution, we observe a tail enrichment
+factor $\Lambda_{\mathrm{tail}}=64.9$, with a nonparametric bootstrap 95\%
+confidence interval of [55.7, 74.5]. The observed nominal exceedance rate
+($1.01\times10^{-3}$) is consistent with the target false-alarm rate within
+finite-sample uncertainty.
+
+Crucially, this separation is driven by rare, high-score excursions rather than
+by a global shift of the anomaly-score distribution. In physical terms, the
+latent operator $\mathcal{F}$ responds to the emergence of transient windows
+exhibiting extreme morphological decoherence—i.e., strong disruption of
+structured time--frequency organization—analogous to excess-power or burst-like
+detection strategies in interferometric gravitational-wave searches.
+
+Negative-control conditions, including electrically dominated signals and
+selected morphology-destruction transformations, do not exhibit tail occupancy
+above the nominal false-alarm rate. The absence of enrichment in these regimes
+confirms that the observed heavy-tail behavior is not a generic consequence of
+distributional mismatch, score rescaling, or non-Gaussianity per se, but arises
+specifically from preserved elastic transient morphology in mechanically
+governed systems.
+
+We emphasize that $\Lambda_{\mathrm{tail}}$ is not interpreted as a discovery
+statistic and does not constitute a hypothesis test. Rather, it quantifies the
+degree to which fault-induced mechanical states populate the extreme-event
+regime of the latent space relative to nominal operation. As such,
+$\Lambda_{\mathrm{tail}}$ provides a physically grounded characterization of
+anomaly sensitivity consistent with the interpretation of $\mathcal{F}$ as a
+morphological detector of rare, structured elastic transients.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Resolution-Dependent Morphological Sensitivity and Conditional Invariance}
+
+The term ``morphological invariance'' is used here only as shorthand for a
+resolution-dependent stability of the operator response, not as a fundamental
+invariance of the underlying dynamics. It refers to the behavior of a fixed
+latent operator under changes of physical system, rather than to an invariance
+of the equations of motion. The observed behavior should therefore be
+interpreted as a representation-induced property of $\mathcal{F}$ under a
+specific experimental protocol, not as evidence for a universal symmetry,
+conserved quantity, or scale-free law of elastic dynamics.
+
+The scope of this work is deliberately restricted to systems governed by
+mechanically mediated elastic wave propagation in constrained solids. We do not
+attempt to optimize or validate the approach in regimes dominated by stochastic
+acoustic or electromagnetic processes.
+
+The time--frequency resolution employed is chosen to resolve short-duration,
+broadband elastic transients while suppressing explicit dependence on absolute
+scale, sensor modality, and physical units through per-window normalization. At
+this resolution, elastic wave packets remain identifiable as structured objects
+in the time--frequency plane. Within this regime, anomaly sensitivity transfers
+across physically unrelated systems only when coherent elastic transient
+morphology is preserved.
+
+Crucially, this transfer occurs without retraining, fine-tuning, domain
+adaptation, or access to target-domain semantics. In the IMS and CWRU bearing
+experiments, the operator $\mathcal{F}$—trained exclusively on interferometric
+strain transients—exhibits monotonic drift detection, early time-to-detection,
+and pronounced tail enrichment under mechanical fault conditions, even when
+classical classification metrics such as window-level AUC vary substantially.
+This indicates that $\mathcal{F}$ is not encoding system-specific operating
+conditions, but is responding to structural properties intrinsic to elastic wave
+propagation in constrained media.
+
+\subsection{Domain of Validity and Physical Selectivity}
+
+A central implication of these results is that the anomaly sensitivity exhibited
+by $\mathcal{F}$ is not universal, but sharply conditional on the physical
+mechanisms governing signal generation and propagation. The systematic contrast
+observed between mechanically mediated systems and electrically dominated
+signals provides an explicit, experimentally grounded delineation of the domain
+in which the proposed approach is valid.
+
+When applied to electrically dominated vibration signals, anomaly sensitivity
+collapses toward weak and non-selective behavior. Although window-level AUC
+values may remain marginally above chance, they lack the defining signatures
+observed in mechanically governed systems: stability under aggregation,
+monotonic temporal drift, and enrichment of extreme latent events. This collapse
+occurs despite the presence of non-Gaussian statistics, demonstrating that
+non-Gaussianity alone is insufficient to induce cross-domain anomaly sensitivity.
+
+These observations indicate that $\mathcal{F}$ does not respond to generic
+distributional shifts, broadband noise, or narrowband electromagnetic
+interference. Instead, measurable sensitivity emerges only in systems that
+support mechanically mediated elastic wave propagation in constrained media.
+The absence of strong anomaly sensitivity in electrically dominated systems
+therefore functions as a negative control, reinforcing the physical selectivity
+of the operator rather than indicating a methodological limitation.
+
+We do not claim that $\mathcal{F}$ provides a first-principles representation of
+elastic dynamics. Rather, it functions as an empirical measurement instrument
+whose response reveals structural regularities when elastic wave propagation is
+coherent and constrained.
+\subsection{Physical Origin of Morphological Regularities}
+
+The conditional nature of the observed transfer admits a direct physical
+interpretation. Both interferometric instrumentation and rotating mechanical
+assemblies support elastic wave propagation in bounded, structured media. In
+interferometers, transient disturbances excite elastic modes of suspended
+optical components and support structures; in rolling-element bearings, impacts
+and frictional contacts excite guided elastic waves in raceways, rolling
+elements, shafts, and housings.
+
+The physical interpretation advanced here is operational: $\mathcal{F}$ acts as
+a morphology-sensitive instrument under a specified preprocessing and scoring
+protocol, and its selectivity is established empirically through negative
+controls and controlled morphology-destruction interventions.
+
+Recent work has shown that deep representations induce highly structured latent
+geometries reflecting both architecture and training data
+\cite{balestriero2021geometry}, while geometric deep learning highlights how
+inductive biases tied to data structure can dominate downstream behavior even
+under frozen, zero-shot deployment \cite{bronstein2021geometric}.
+
+In both interferometric and mechanical systems, measured signals reflect the
+superposition, dispersion, and reflection of elastic wave packets constrained
+by geometry, material properties, and boundary conditions. These processes
+impose characteristic time--frequency organizations that are largely independent
+of absolute physical scale, yet highly sensitive to coherence and confinement.
+The empirical results indicate that $\mathcal{F}$ is selectively sensitive to
+these regularities: when elastic propagation remains coherent, anomaly
+sensitivity, drift, and tail enrichment emerge; when this organization is
+disrupted, sensitivity degrades in a predictable, transformation-dependent
+manner.
+\subsection{Structural Sensitivity Beyond Energy-Based Detection}
+
+The comparative behavior between $\mathcal{F}$ and reconstruction-based
+baselines admits a clear physical interpretation. Reconstruction-based anomaly
+detectors implicitly learn scale-dependent statistics of the training manifold,
+flagging deviations when test signals differ in amplitude, variance, or spectral
+power distribution. As a result, reconstruction error remains intrinsically
+coupled to energy-based cues.
+
+In contrast, the latent operator $\mathcal{F}$ encodes structural properties
+associated with elastic wave propagation in constrained media. Its anomaly
+sensitivity is governed not by absolute signal power, but by the organization of
+energy across time and frequency, reflecting the coherence and dispersion of
+propagating elastic wave packets. This decoupling from amplitude-driven cues
+explains why anomaly sensitivity can be preserved across domains with radically
+different sensing modalities, physical units, and energy scales.
+
+The response of $\mathcal{F}$ to controlled morphological degradation is
+therefore naturally interpreted as a loss of coherent time--frequency
+organization. Dispersion, temporal smearing, and reverberation progressively
+disrupt elastic transient structure, leading to a breakdown of the patterns to
+which the latent representation is tuned.
+
+\subsection{Broader Physical Scope}
+
+Within its physically delimited domain of validity, the results suggest a
+broader implication: representations developed in precision physics contexts
+may encode structural priors that reflect general properties of wave-mediated
+dynamics in bounded media, rather than features tied to a specific instrument or
+dataset.
+
+Under appropriate physical conditions, such representations can function as
+morphology-sensitive measurement devices rather than task-specific classifiers.
+The present results indicate that cross-domain transfer of anomaly sensitivity
+is physically mediated rather than algorithmic, and should therefore be expected
+only when underlying propagation mechanisms and morphological constraints are
+shared.
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have shown that anomaly sensitivity can transfer across physically unrelated
+systems when their measured signals preserve coherent elastic transient
+morphology. A latent operator trained exclusively on interferometric strain
+transients from gravitational-wave detector instrumentation exhibits robust
+zero-shot sensitivity when applied to rotating mechanical systems governed by
+elastic wave propagation, without retraining, fine-tuning, or domain adaptation.
+
+The observed transfer is selective rather than generic. Pronounced anomaly
+sensitivity, monotonic drift, early time-to-detection, and enrichment of extreme
+latent events arise only in systems that support mechanically mediated elastic
+wave propagation in constrained media. In contrast, electrically dominated
+signals and controlled morphology-destruction transformations do not exhibit
+these signatures, thereby defining a clear and physically motivated domain of
+validity. These negative results rule out explanations based on signal energy,
+marginal statistics, or generic distributional mismatch.
+
+In run-to-failure regimes, the fixed operator yields a normalized and
+interpretable Health Index that tracks progressive degradation and identifies
+deviation from nominal operation well before catastrophic failure. This behavior
+persists even when classical classification metrics vary across runs,
+demonstrating sensitivity to structural evolution rather than to discrete fault
+labels.
+
+These findings support an empirically observed, resolution-dependent morphological sensitivity, which can be described as a conditional invariance of the operator response under changes of physical system. Within the stated experimental protocol, the operator $\mathcal{F}$ functions as a morphology-sensitive
+measurement device rather than as a task-specific classifier. More broadly, this
+work illustrates how representations developed for precision measurement in
+fundamental physics can encode transferable structural priors, enabling
+physically selective zero-shot generalization across systems that share common
+elastic propagation phenomenology.
+\section*{Data and Code Availability}
+
+All raw target-domain sensor datasets used in this work are publicly available
+from their original providers (IMS--NASA, CWRU, and VSB) and are not redistributed
+here. Source-domain interferometric training data and trained model weights are
+not publicly released.
+
+Figure-level computational reproducibility is provided through derived,
+non-invertible artifacts and deterministic scripts that regenerate all figures
+and numerical values reported in the manuscript. Full implementation, training,
+and preprocessing details are provided in the Supplemental Material.
+
+Repository: \url{https://github.com/joseandreuu/aether-morphology-paper}
+
+\bibliographystyle{apsrev4-2}
+\bibliography{references}
+\end{document}
