@@ -74,7 +74,12 @@ All tabular artifacts are included under `paper/tables/` and are sufficient to r
 
 ## Data access and policy
 
-Figures **Fig. 2–Fig. 6** rely on intermediate artifacts hosted in a **restricted Google Cloud Storage (GCS) bucket**.
+Figures **Fig. 2–Fig. 6** are **fully reproducible at the figure level** using the
+derived numerical artifacts committed in this repository (`paper/tables/`).
+
+The original raw sensor streams and intermediate execution artifacts used to
+produce those tables are hosted in a **restricted Google Cloud Storage (GCS) bucket**
+and are **not publicly accessible**.
 
 - The bucket is **not public**
 - No anonymous or public access is enabled
@@ -82,15 +87,18 @@ Figures **Fig. 2–Fig. 6** rely on intermediate artifacts hosted in a **restric
 
 Users without access permissions can still:
 
-- Reproduce **Fig. 1**
+- Reproduce **all manuscript figures (Fig. 1–Fig. 6)** from the committed tables
+- Verify **all numerical values reported in the paper**
 - Inspect the final manuscript figures under `paper/figures/`
-- Verify all numerical values reported in the paper via the committed tables
+
+What is not reproducible without private access:
+
+- Re-execution from raw sensor streams
+- Regeneration of intermediate scoring artifacts
 
 This design ensures both:
-- Scientific reproducibility
-- Protection of proprietary representations and operators
-
----
+- **Scientific reproducibility of published results**
+- **Protection of proprietary representations and operators**
 
 ## Prerequisites
 
