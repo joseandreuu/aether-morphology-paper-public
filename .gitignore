@@ -35,3 +35,6 @@ data/processed/**
 __pycache__/
 *.pyc
 .outputs/
+
+# build outputs
+outputs/
