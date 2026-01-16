@@ -1,0 +1,15 @@
+name: aether-morphology
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - pyyaml
+  - tqdm
+  - pip
+  - pip:
+      - rich

@@ -1,0 +1,33 @@
+{
+  "input": "data/processed/fig2/cwru_scored_windows.parquet",
+  "columns": {
+    "label": "_y",
+    "score": "S_z",
+    "file_id": "file"
+  },
+  "n_windows": 4579,
+  "n_files": 241,
+  "auc_window": {
+    "point": 0.8961965405845949,
+    "bootstrap_point": 0.8961965405845949,
+    "ci95": [
+      0.8862923976258614,
+      0.9050619471554805
+    ]
+  },
+  "auc_file": {
+    "point": 0.9919988770353734,
+    "bootstrap_point": 0.9919988770353734,
+    "ci95": [
+      0.9833532664764394,
+      0.9981246985853606
+    ]
+  },
+  "bootstrap": {
+    "B": 2000,
+    "seeds": {
+      "win": 123,
+      "file": 456
+    }
+  }
+}

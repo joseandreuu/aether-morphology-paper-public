@@ -1,0 +1,13 @@
+project: aether-morphology-paper
+
+paths:
+  data_raw: data/raw
+  data_processed: data/processed
+  outputs_figures: outputs/figures
+  outputs_tables: outputs/tables
+
+reproducibility:
+  seed: 123
+
+figures:
+  dpi: 600

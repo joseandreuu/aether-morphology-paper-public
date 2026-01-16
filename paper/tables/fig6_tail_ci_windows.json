@@ -1,0 +1,30 @@
+{
+  "input": "data/processed/fig2/cwru_scored_windows.parquet",
+  "filter": "path contains reverb_L1",
+  "columns": {
+    "score": "S_z",
+    "label": "_y",
+    "split": "split"
+  },
+  "n_windows_total": 4579,
+  "n_windows_nominal": 1976,
+  "n_windows_abnormal": 2603,
+  "q": 0.999,
+  "far_theoretical": 0.0010000000000000009,
+  "tau": 5.467987902218343,
+  "p_nominal_observed": 0.0010121457489878543,
+  "p_abnormal": 0.06492508643872455,
+  "lambda_tail": 64.92508643872449,
+  "bootstrap": {
+    "B": 20000,
+    "seed": 123,
+    "ci95_p_abnormal": [
+      0.05570495582020745,
+      0.07452938916634652
+    ],
+    "ci95_lambda_tail": [
+      55.7049558202074,
+      74.52938916634646
+    ]
+  }
+}

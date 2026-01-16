@@ -1,0 +1,11 @@
+{
+  "parquet": "/content/out_ims_run/ims_1st_test_ch0_fs4096_stft256-128-256_q0.999_scored_windows.parquet",
+  "N0_baseline": 100,
+  "tau_q": 0.999,
+  "tau": 3844.79736328125,
+  "drift_spearman_q95": 0.5728582914331657,
+  "drift_spearman_q99": 0.5607400669602678,
+  "ttd_hit_rate_thr": 0.01,
+  "ttd_record_index": 51,
+  "ttd_dt": "2003-10-22 17:04:13"
+}

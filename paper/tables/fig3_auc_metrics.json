@@ -1,0 +1,20 @@
+{
+  "run_dir": "/content/aether_cwru_run",
+  "device": "cwru",
+  "machine_id": "id_00",
+  "score_col": "S_raw",
+  "n_windows": 1976,
+  "n_windows_normal": 76,
+  "n_windows_abnormal": 1900,
+  "auc_window": 0.9970914127423822,
+  "auc_file": {
+    "max": 1.0,
+    "mean": 1.0,
+    "median": 1.0
+  },
+  "tau_q": 0.999,
+  "tau": 17650.77207654843,
+  "tail_norm_gt_tau": 0.013157894736842105,
+  "tail_abn_gt_tau": 0.8473684210526315,
+  "delta_tail": 0.8342105263157894
+}

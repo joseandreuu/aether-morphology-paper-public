@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite the associated manuscript."
+type: software
+title: "Aether Morphology Paper: figure-level reproducibility artifacts"
+authors:
+  - family-names: "Sánchez Andreu"
+    given-names: "Jose"
+license: MIT
+repository-code: "https://github.com/joseandreuu/aether-morphology-paper"
