@@ -2,9 +2,9 @@
 
 This repository provides a **figure-level reproducibility package** for the manuscript:
 
-**“Morphological Invariance and Selective Zero-Shot Transfer from Interferometric Instrumentation to Rotating Mechanical Systems”**
+**“Zero-Shot Detection of Elastic Transient Morphology Across Physical Systems”**
 
-The goal of this repository is to enable **independent regeneration of all manuscript figures** while **explicitly protecting proprietary models, latent operators, and raw sensor data**.
+The goal is to enable independent regeneration of all manuscript figures (Fig. 1–Fig. 6) while protecting proprietary components (latent operator / weights / training data / raw sensor streams).
 
 ---
 
@@ -30,6 +30,9 @@ Only **derived, publication-safe, non-invertible artifacts** are provided.
 
 - `src/` — figure generation scripts (Fig1–Fig6)
 - `scripts/` — data-fetch and environment setup utilities
+- `paper/main.tex` — main manuscript LaTeX source
+- `paper/supplemental.tex` — supplemental material LaTeX source
+- `paper/references.bib` — BibTeX bibliography
 - `paper/figures/` — final PDF figures used in the manuscript (committed)
 - `paper/tables/` — derived tabular artifacts used to generate figures (committed)
 - `outputs/figures/` — generated PNGs (git-ignored)
@@ -123,7 +126,7 @@ make figures
 This will:
 	1.	Create a local Python environment
 	2.	Download the required intermediate artifacts (if you have access)
-	3.	Regenerate Fig1–Fig6 from scratch
+	3.	Regenerate Fig1–Fig6 from the committed tables
 
 ⸻
 
