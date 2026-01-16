@@ -1,5 +1,4 @@
 {
-  "run_dir": "/content/aether_cwru_run",
   "device": "cwru",
   "machine_id": "id_00",
   "score_col": "S_raw",

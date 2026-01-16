@@ -1,5 +1,5 @@
 {
-  "parquet": "/content/out_ims_run/ims_1st_test_ch0_fs4096_stft256-128-256_q0.999_scored_windows.parquet",
+  "parquet": "internal_run_artifact",
   "N0_baseline": 100,
   "tau_q": 0.999,
   "tau": 3844.79736328125,
