@@ -7,6 +7,7 @@ This repository provides a **figure-level reproducibility package** for the manu
 The goal of this repository is to enable **independent regeneration of all manuscript figures** while **explicitly protecting proprietary models, latent operators, and raw sensor data**.
 
 ---
+
 ## Scope of reproducibility
 
 This repository allows reproduction of:
@@ -21,17 +22,18 @@ This repository does **not** include:
 - Training code
 - Raw gravitational-wave or mechanical sensor streams
 
-Only **derived, publication-safe, non-invertible artifacts** are used.
+Only **derived, publication-safe, non-invertible artifacts** are provided.
 
+---
 
 ## Repository layout
 
-- `src/` — figure generators (Fig1–Fig6)
-- `scripts/` — data fetch + environment setup
-- `paper/figures/` — final PDFs included in the manuscript (committed)
+- `src/` — figure generation scripts (Fig1–Fig6)
+- `scripts/` — data-fetch and environment setup utilities
+- `paper/figures/` — final PDF figures used in the manuscript (committed)
 - `paper/tables/` — derived tabular artifacts used to generate figures (committed)
 - `outputs/figures/` — generated PNGs (git-ignored)
-- `data/processed/` — downloaded intermediate artifacts (git-ignored)
+- `data/processed/` — intermediate artifacts downloaded by fetch scripts (git-ignored)
 - `configs/` — experiment configuration (paths, constants)
 - `environment.yml` — conda environment specification
 - `Makefile` — reproducible build entrypoints
@@ -40,21 +42,23 @@ Only **derived, publication-safe, non-invertible artifacts** are used.
 
 ## What is reproducible
 
-- Figures **Fig1–Fig6**
-- Exact numerical results used in the paper figures
+- Figures **Fig. 1–Fig. 6**
+- Exact numerical results used in the manuscript figures
 - Plot styles, thresholds, annotations, and metrics
 
 Not included:
 
 - Latent operator / model weights
-- Training code or raw sensor streams
+- Training code
+- Raw sensor data
 
-Only **derived, non-invertible artifacts** (scores, tables, metrics) are used.
+All released artifacts are **post-hoc, non-invertible**, and sufficient to reproduce the published results exactly.
 
 ---
+
 ## Figure-to-data mapping
 
-Each figure is generated from a fixed, minimal set of derived artifacts:
+Each figure is generated from a fixed and minimal set of derived artifacts:
 
 - **Fig. 1** — Analytical / schematic construction (no external data)
 - **Fig. 2** — IMS-NASA bearing degradation experiments  
@@ -70,18 +74,19 @@ All tabular artifacts are included under `paper/tables/` and are sufficient to r
 
 ## Data access and policy
 
-Figures **Fig. 2–Fig. 6** rely on intermediate artifacts stored in a **private Google Cloud Storage (GCS) bucket**.
+Figures **Fig. 2–Fig. 6** rely on intermediate artifacts hosted in a **restricted Google Cloud Storage (GCS) bucket**.
 
 - The bucket is **not public**
-- No anonymous or authenticated public access is enabled
+- No anonymous or public access is enabled
 - Access is controlled via Google Cloud IAM
 
 Users without access permissions can still:
 
 - Reproduce **Fig. 1**
 - Inspect the final manuscript figures under `paper/figures/`
+- Verify all numerical values reported in the paper via the committed tables
 
-This design ensures:
+This design ensures both:
 - Scientific reproducibility
 - Protection of proprietary representations and operators
 
@@ -89,18 +94,18 @@ This design ensures:
 
 ## Prerequisites
 
-- Python **3.11+**
+- Python **3.9+**
 - `git`
-- `gsutil` authenticated (only required for Fig2–Fig5 data fetch)
+- `gsutil` authenticated (only required for fetching intermediate artifacts)
 - macOS / Linux recommended
 
 ---
 
-## Quickstart (recommended: venv)
+## Quickstart (recommended: virtual environment)
 
 ```bash
-git clone git@github.com:joseandreuu/aether-morphology-paper.git
-cd aether-morphology-paper
+git clone https://github.com/joseandreuu/aether-morphology-paper-public.git
+cd aether-morphology-paper-public
 
 bash scripts/setup_venv.sh
 source .venv/bin/activate
@@ -132,14 +137,14 @@ Generated outputs:
 ⸻
 ## Intellectual property notice
 
-This repository does not expose:
-	•	The latent operator
-	•	Model weights
-	•	Trainable representations
-	•	Any component enabling reconstruction of the core method
+The core method described in the associated manuscript is protected by a filed patent application:
 
-All shared numerical artifacts are post-hoc, non-invertible, and publication-safe.
-All figures are generated from a frozen snapshot of latent operator outputs (January 2026).
+Spanish Patent Application No. P202630043 (filed 2026).
+
+This repository is intentionally limited to figure-level reproducibility and post-hoc numerical artifacts in order to support scientific validation and peer review, while preventing disclosure of proprietary implementations covered by the above patent application.
+
+No model weights, trainable representations, or implementation details enabling reconstruction of the protected method are included.
+All shared artifacts are non-invertible and publication-safe.
 
 ## Licensing
 
@@ -153,9 +158,9 @@ Proprietary components are intentionally excluded.
 Citation
 ```bibtex
 @article{aether_morphology_2026,
-  title   = {Morphological Invariance and Selective Zero-Shot Transfer from Interferometric Instrumentation to Rotating Mechanical Systems},
-  author  = {Jose Antonio Sanchez Andreu},
-  year    = {2026}
+  title  = {Morphological Invariance and Selective Zero-Shot Transfer from Interferometric Instrumentation to Rotating Mechanical Systems},
+  author = {Sanchez Andreu, Jose},
+  year   = {2026}
 }
 ```
 ## Contact
