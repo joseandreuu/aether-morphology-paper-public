@@ -38,3 +38,6 @@ __pycache__/
 
 # build outputs
 outputs/
+
+# local audit artifacts
+AUDIT_FILELIST.txt
